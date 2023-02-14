@@ -35,7 +35,7 @@ executable Spellchecker
     hs-source-dirs:   app,
                       word-suggestion
     default-language: Haskell2010
-    other-modules:    WordModel
+    other-modules:    WordModel, WordSuggester
 
 test-suite Test
     type:              exitcode-stdio-1.0

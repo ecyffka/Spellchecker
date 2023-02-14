@@ -1,4 +1,4 @@
-module WordModel (known, wordProb, train, incrementCount) where
+module WordModel where
 
 import qualified Data.Map as Map
 import Data.IntMap (findWithDefault)
@@ -10,7 +10,7 @@ predict word probabilities from a given corpus.
 There is the possibility of extending this later.
 -}
 
--- WordModel wordCountDict vocabSize
+-- WordModel wordCountDict numTokens
 data WordModel = WordModel WordCount Int 
                  | EmptyModel ()
 
@@ -22,7 +22,7 @@ type WordCount = Map.Map [Char] Int
 -}
 known :: WordModel -> [Char] -> Bool
 known (EmptyModel ()) w = False
-known (WordModel m v) w = Map.member w m
+known (WordModel m n) w = Map.member w m
 
 {-
 'wordProb wm w' Returns the probability of the occurence of word w
@@ -32,7 +32,7 @@ case of an empty (untrained) model
 -}
 wordProb :: Fractional a => WordModel -> [Char] -> a
 wordProb (EmptyModel ()) w = 0
-wordProb (WordModel m v) w = fromIntegral (Map.findWithDefault 0 w m + 1) / fromIntegral (v + Map.size m)
+wordProb (WordModel m n) w = fromIntegral (Map.findWithDefault 0 w m + 1) / fromIntegral (n + Map.size m)
 
 {-
 Train the word model on a corpus of words
@@ -49,7 +49,7 @@ in the model
 -}
 incrementCount :: WordModel -> [Char] -> WordModel
 incrementCount (EmptyModel ()) w = EmptyModel ()
-incrementCount (WordModel m vocabSize) w = 
+incrementCount (WordModel m numTokens) w = 
     WordModel 
     (Map.insertWith (+) w 1 m) 
-    (vocabSize + 1)
+    (numTokens + 1)

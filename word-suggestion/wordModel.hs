@@ -47,7 +47,7 @@ case of an empty (untrained) model
 -}
 logProb :: Floating a => WordModel -> [Char] -> a
 logProb (EmptyModel ()) w = 0
-logProb (WordModel m n) w = - log (fromIntegral (Map.findWithDefault 0 w m + 1)) - log (fromIntegral (n + Map.size m))
+logProb (WordModel m n) w = - (log (fromIntegral (Map.findWithDefault 0 w m + 1)) - log (fromIntegral (n + Map.size m)))
 
 {-
 Train the word model on a corpus of words

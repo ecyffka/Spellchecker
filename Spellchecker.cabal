@@ -47,4 +47,5 @@ test-suite Test
                        HUnit ^>=1.6.2.0
     hs-source-dirs:    test,
                        word-suggestion 
-    other-modules:     WordModel, WordModelTest
+    other-modules:     WordModel, WordModelTest,
+                       WordSuggester

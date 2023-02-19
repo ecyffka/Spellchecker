@@ -1,16 +1,16 @@
 -- Inspired by http://www.norvig.com/spell-correct.html
 
 --module WordSuggester(findSuggestions, findSuggestionsWithProb, editProbLog, candidates) where
-module WordSuggester where
+module WordSuggester(findSuggestions, findSuggestionsWithProb) where
 
 import qualified Data.Map as Map
 import Data.List
 import Data.Function
 import WordModel
 
--- k: word, v: (list of edits to achieve w, probability of w given typo)
+-- k: word, v: list of edits to achieve w
 type WordEdits = Map.Map [Char] [[Char]]
--- k: word, v: probability of word given typo
+-- k: word, v: log probability of word given typo
 type WordProbs = Map.Map [Char] Double
 
 {-
@@ -25,7 +25,7 @@ findSuggestions w wm = map fst (mostProbable wm 5 w (candidates wm w))
 'findSuggestions w wm' Returns the 5 most probable suggestions
 of words to replace the mispelled word m. Uses the WordModel wm
 in probability calculations.
-Returns a list of tuples (word, probability)
+Returns a list of tuples (word, log probability)
 -}
 findSuggestionsWithProb :: [Char] -> WordModel -> [([Char],Double)]
 findSuggestionsWithProb w wm = mostProbable wm 5 w (candidates wm w)
@@ -33,15 +33,14 @@ findSuggestionsWithProb w wm = mostProbable wm 5 w (candidates wm w)
 {-
 'mostProbable wm n candidates' Selects the n most probable words from 
 the list of candidate words, according to the WordModel wm
-Returns a list of n tuples containing the word and its probability (word,prob)
+Returns a list of n tuples containing the word and its log probability (word, log prob)
 -}
 mostProbable :: WordModel -> Int -> [Char] -> WordEdits -> [([Char],Double)]
 mostProbable wm n w candidates = take n $ sortBy (flip (compare `on` snd)) (Map.toList(suggestionProbs wm candidates w))
 
 {-
 'probabilities wm m w' 
-Generates the log probabilities of a map m of edited words,
-given the starting word w
+Generates the log probabilities of a map m of edited words, given the starting word w
 Uses the given word model wm for word probabilities.
 
 Probability is calculated as:

@@ -31,18 +31,21 @@ executable Spellchecker
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:    base ^>=4.16.4.0,
-                      containers
+                      containers,
+                      split
     hs-source-dirs:   app,
                       word-suggestion
     default-language: Haskell2010
-    other-modules:    WordModel
+    other-modules:    WordModel, WordSuggester
 
 test-suite Test
     type:              exitcode-stdio-1.0
     main-is:           testSuite.hs
     build-depends:     base ^>=4.16.4.0,
                        containers,
-                       HUnit ^>=1.6.2.0,
+                       split,
+                       HUnit ^>=1.6.2.0
     hs-source-dirs:    test,
                        word-suggestion 
-    other-modules:     WordModel, WordModelTest
+    other-modules:     WordModel, WordModelTest,
+                       WordSuggester

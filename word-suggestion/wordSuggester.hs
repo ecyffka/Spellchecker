@@ -1,6 +1,7 @@
 -- Inspired by http://www.norvig.com/spell-correct.html
 
-module WordSuggester(findSuggestions, findSuggestionsWithProb) where
+--module WordSuggester(findSuggestions, findSuggestionsWithProb, editProbLog, candidates) where
+module WordSuggester where
 
 import qualified Data.Map as Map
 import Data.List
@@ -18,7 +19,7 @@ of words to replace the mispelled word m. Uses the WordModel wm
 in probability calculations.
 -}
 findSuggestions :: [Char] -> WordModel -> [[Char]]
-findSuggestions w wm = map fst (mostProbable wm 5 (candidates wm w))
+findSuggestions w wm = map fst (mostProbable wm 5 w (candidates wm w))
 
 {-
 'findSuggestions w wm' Returns the 5 most probable suggestions
@@ -27,39 +28,53 @@ in probability calculations.
 Returns a list of tuples (word, probability)
 -}
 findSuggestionsWithProb :: [Char] -> WordModel -> [([Char],Double)]
-findSuggestionsWithProb w wm = mostProbable wm 5 (candidates wm w)
+findSuggestionsWithProb w wm = mostProbable wm 5 w (candidates wm w)
 
 {-
 'mostProbable wm n candidates' Selects the n most probable words from 
 the list of candidate words, according to the WordModel wm
 Returns a list of n tuples containing the word and its probability (word,prob)
 -}
-mostProbable :: WordModel -> Int -> WordEdits -> [([Char],Double)]
-mostProbable wm n candidates = take n $ sortBy (flip (compare `on` snd)) (Map.toList(suggestionProbs wm candidates))
+mostProbable :: WordModel -> Int -> [Char] -> WordEdits -> [([Char],Double)]
+mostProbable wm n w candidates = take n $ sortBy (flip (compare `on` snd)) (Map.toList(suggestionProbs wm candidates w))
 
 {-
-'probabilities wm m' 
-Generates the probabilities of a map m of edited words.
+'probabilities wm m w' 
+Generates the log probabilities of a map m of edited words,
+given the starting word w
 Uses the given word model wm for word probabilities.
 
 Probability is calculated as:
-(word probability)*(1/(edit distance))
-If a word appears multiple times (there is more than one way to generate
-the word from the typo), then the probabilities for that word are summed
+log((word probability)*(edit probability))
+- Word probability comes from the WordModel
+- See editProbLog for the edit probability
 -}
-suggestionProbs :: WordModel -> WordEdits -> WordProbs
-suggestionProbs wm m = Map.foldrWithKey 
-    (\w e m2 -> Map.insert w ((wordProb wm w)*((editProb e)^2)) m2) 
+suggestionProbs :: WordModel -> WordEdits -> [Char] -> WordProbs
+suggestionProbs wm m w = Map.foldrWithKey 
+    (\w2 e m2 -> Map.insert w2 (log (wordProb wm w2) + (editProbLog w e)) m2) 
     Map.empty m
 
 {-
-'editProb edits'
-Calculate the probability of a word based on the edits
-Given a list of possible edits to arrive at the word: [[e1],[e2],...[en]],
-it calculates the probability as (1/(length e1))*(1/(length e2))*...*(1/(length en))
+'editProbLog w edits'
+Calculate the log probability of the edits being applied to w to
+generate a particular word.
+Given a list of possible edits: [[e1],[e2],...[en]],
+it calculates the log probability as:
+log(P(e1)+P(e2)+...+P(en))
+
+where P(ei) = 1/((length w)*(26+26+1+1)*(length ei))
+- Why? We multiply the length of w by (26+26+1+1) to find the number of possible
+  edits at distance 1 from w. Then, we multiply by the number of edits
+  in the sequence of edits ei.
+
+Note that this is an approximation, because when the
+edit distance is greater than one, the length of the word
+may change after the first edit. For simplicity, we use the
+original word length.
 -}
-editProb :: [[Char]] -> Double 
-editProb = foldr (\e1 res -> res / fromIntegral (length e1)) 1
+oneEditProb n = n*(26+26+1+1)
+editProbLog :: [Char] -> [[Char]] -> Double 
+editProbLog w e = log (foldr (\e1 res -> res + (1 / fromIntegral (oneEdit * (length e1)))) 0 e) where oneEdit = oneEditProb (length w)
 
 {-
 'candidates wm w' Generates a map of all possible words within edit 
@@ -67,7 +82,7 @@ distance 2 from the given word w.
 Eliminates words that are not known to the WordModel wm
 -}
 candidates :: WordModel -> [Char] -> WordEdits
-candidates wm w = Map.filterWithKey (\k _ -> known wm k) $ edits1set (edits1 (Map.fromList [(w,[])]) w)
+candidates wm w = Map.filterWithKey (\k _ -> known wm k) $ edits1set (edits1 (Map.fromList [(w,[])]) w [])
 
 -- Set of operations to apply to a word, tuple of the function and the 
 -- shorthand name for the operation
@@ -75,23 +90,23 @@ operations :: [([([Char], [Char])] -> [[Char]], Char)]
 operations = [(inserts,'i'),(deletes,'d'),(replaces,'r'),(transposes,'t')]
 
 {-
-'edits1 m w'
+'edits1 m w edits'
 Add to the map m all possible words of edit distance 1 from the given word w
-Considers insertions, deletions, replacements, and swaps
+Considers insertions, deletions, replacements, and swaps.
+edits: edits previously applied to attain w
 -}
-edits1 :: WordEdits -> [Char] -> WordEdits
-edits1 m w = foldr 
+edits1 :: WordEdits -> [Char] -> [[Char]] -> WordEdits
+edits1 m w prevEdits = foldr 
     (\(op,e) m2 -> addWordsToMap m2 (op s) prevEdits e)
     m operations 
     where s = splits "" w
-          prevEdits = Map.findWithDefault [] w m
 
 {-
 Add to the map all possible words of edit distance 1 from the given map of words
 Considers insertions, deletions, replacements, and swaps
 -}
 edits1set :: WordEdits -> WordEdits
-edits1set m = Map.foldrWithKey (\w e m2 -> edits1 m2 w) m m
+edits1set m = Map.foldrWithKey (\w e m2 -> edits1 m2 w e) Map.empty m
 
 {-
 'addWordsToMap m wList edits e'
@@ -101,7 +116,9 @@ If the word is already in the map, add the new edit sequence that generates it.
 If not, add it to the map.
 -}
 addWordsToMap :: WordEdits -> [[Char]] -> [[Char]] -> Char -> WordEdits
-addWordsToMap m wList edits e = foldr (\w m2-> Map.insertWith (++) w (map (e:) edits) m2) m wList
+addWordsToMap m wList edits e = foldr 
+    (\w m2-> Map.insertWith (++) w (if edits == [] then [[e]] else (map (e:) edits)) m2) 
+    m wList
 
 {-
 'splits prefix w' 
@@ -137,6 +154,7 @@ every letter in the alphabet.
 -}
 replaces :: [([Char],[Char])] -> [[Char]]
 replaces = foldr (\(prefix,end) res -> if null end then res else map (\c -> prefix++(c:tail end)) ['a'..'z'] ++ res) []
+
 {-
 From the list of splits for the word w, generate a list of possible words that could be generated
 from swapping a character with its neighbour in the word w. At every split location, a word will

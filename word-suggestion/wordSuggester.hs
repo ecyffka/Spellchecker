@@ -71,6 +71,7 @@ edit distance is greater than one, the length of the word
 may change after the first edit. For simplicity, we use the
 original word length.
 -}
+oneEditProb :: Num a => a -> a
 oneEditProb n = n*(26+26+1+1)
 editProbLog :: [Char] -> [[Char]] -> Double 
 editProbLog w e = log (foldr (\e1 res -> res + (1 / fromIntegral (oneEdit * (length e1)))) 0 e) where oneEdit = oneEditProb (length w)

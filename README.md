@@ -3,6 +3,14 @@
 Authors: Arya, Mizuki, Erin
 Project wiki page: ​​https://www.cs.ubc.ca/~poole/cs312/2023/projects/project1.pdf
 
+## Usage
+
+To use the spellchecker:
+- Clone the project
+- From the root directory, run "cabal run Spellchecker"
+- The Spellchecker loads the Brown corpus by default
+- Check typos or add new sentences to the corpus
+
 ## Feasibility study: is functional programming a feasible option for machine learning applications?
 
 ### What is the problem?

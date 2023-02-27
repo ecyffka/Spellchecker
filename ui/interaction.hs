@@ -43,10 +43,10 @@ spellcheck :: WordModel.WordModel -> IO WordModel.WordModel
 spellcheck wm = do
       putStrLn "Enter the text to spellcheck:"
       sent <- getLine
-      let tokens = splitOnSpace sent
+      let tokens = splitInput sent
       (newWm, fixedTokens) <- checkWords wm tokens
       let fixedSent = reassemble fixedTokens
-      putStr "Corrected text:"
+      putStr "Corrected text: "
       putStrLn fixedSent
       return newWm
 
@@ -73,19 +73,23 @@ checkWords wm (h:t) =
             return (wm3, correct:tokens)
 
 {-
-This splits the user's input by spaces into "words" (either actual words or punctuation to
+This splits the user's input into tokens (either actual words or punctuation to
 be retained the final output).
 Input: lst ([[Char]], the list of words to parse)
-Output: [[Char]] the list of words contained in the input string
+Output: [[Char]] the list of tokens contained in the input string
 -}
-splitOnSpace :: [Char] -> [[Char]]
-splitOnSpace lst = foldr (\e (h:t) -> if e == ' ' then []:h:t else (e:h):t) [[]] lst
+punctuation = " \"!@#$%&[](){}_<>-?:;?/'`~.,*+\n"
+splitInput :: [Char] -> [[Char]]
+splitInput lst = foldr (\e (h:t) -> 
+      if elem e punctuation then []:[e]:h:t
+      else (e:h):t) 
+      [[]] lst
 
 {-
 This puts the correct list of words back together to return to the user.
 -}
 reassemble :: [[Char]] -> [Char]
-reassemble lst =  foldr (\e res -> e++(' ':res)) "" lst
+reassemble lst =  foldr (++) "" lst
 
 {-
 Asks the user for a word to check for misspellings, and
@@ -97,7 +101,7 @@ getNewWord :: WordModel.WordModel -> IO (WordModel.WordModel, [Char])
 getNewWord wm = do
       putStrLn "What word do you want to check?"
       newWord <- getLine
-      let p = findSuggestions newWord wm
+      let p = findSuggestions (map toLower newWord) wm
       putStr(show p)
       (newWm, correct) <- askUser wm
       return (newWm, correct)

@@ -8,7 +8,7 @@ import Data.Char
 -- initialize the model
 initializeWm :: IO WordModel.WordModel
 initializeWm = do
-    file <- readFile "dictionary.txt"
+    file <- readFile "word-suggestion/brown_nolines.txt"
     let wm = train (EmptyModel()) (tokenize file)
     return wm
 
@@ -16,13 +16,17 @@ initializeWm = do
 -- main menu
 start :: WordModel.WordModel -> IO WordModel.WordModel
 start wm = do
-      putStrLn "Choose from the options:\n 1. Try a word\n 2. Add a corpus \n 3. Quit"
+      putStrLn "\nChoose from the options:\n 1. Try a word\n 2. Spellcheck a sentence\n 3. Add a corpus \n 4. Quit"
       res <- getLine
       if (res `elem` ["1","1.", "a", "A"])
             then do
-                  newWm <- getNewWord wm
+                  (newWm, correct) <- getNewWord wm
                   start newWm
       else if (res `elem` ["2","2.", "b", "B"])
+            then do
+                  newWm <- spellcheck wm
+                  start newWm
+      else if (res `elem` ["3","3.", "c", "C"])
             then do
                   newWm <- getNewCorpus wm
                   start newWm
@@ -30,31 +34,96 @@ start wm = do
             putStrLn "Bye!"
             return wm
 
--- asks the user a word to check
-getNewWord :: WordModel.WordModel -> IO WordModel.WordModel
+{-
+Asks the user for a sentence to spellcheck, then iterates through
+the words in the sentence, providing suggestions for misspelled words.
+Finally, prints the fixed sentence to the console.
+-}
+spellcheck :: WordModel.WordModel -> IO WordModel.WordModel
+spellcheck wm = do
+      putStrLn "Enter the text to spellcheck:"
+      sent <- getLine
+      let tokens = splitOnSpace sent
+      (newWm, fixedTokens) <- checkWords wm tokens
+      let fixedSent = reassemble fixedTokens
+      putStr "Corrected text:"
+      putStrLn fixedSent
+      return newWm
+
+{-
+'checkWords wm lst'
+Checks each word in the list lst of input words against the word model wm. 
+If a given word is not the word model, it suggests words to replace
+it with.
+Output: (wm, fixedTokens) updated word model and corrected tokens 
+-}
+
+checkWords :: WordModel -> [[Char]] -> IO (WordModel.WordModel, [[Char]])
+checkWords wm [] = do return (wm,[])
+checkWords wm (h:t) =
+      if ((known wm (map toLower h)) || (tokenize h == [])) then do
+            (wm2, tokens) <- checkWords wm t
+            return (wm2, h:tokens)
+      else do
+            putStrLn("The word \""++h++"\" is incorrect.")
+            let suggestions = findSuggestions h wm
+            putStr(show suggestions)
+            (wm2, correct) <- askUser wm
+            (wm3, tokens) <- checkWords wm2 t
+            return (wm3, correct:tokens)
+
+{-
+This splits the user's input by spaces into "words" (either actual words or punctuation to
+be retained the final output).
+Input: lst ([[Char]], the list of words to parse)
+Output: [[Char]] the list of words contained in the input string
+-}
+splitOnSpace :: [Char] -> [[Char]]
+splitOnSpace lst = foldr (\e (h:t) -> if e == ' ' then []:h:t else (e:h):t) [[]] lst
+
+{-
+This puts the correct list of words back together to return to the user.
+-}
+reassemble :: [[Char]] -> [Char]
+reassemble lst =  foldr (\e res -> e++(' ':res)) "" lst
+
+{-
+Asks the user for a word to check for misspellings, and
+if it is not a known word, suggests correct words to fix the typo.
+Output: (wm, correct) the updated word model and the correct word
+         chosen by the user
+-}
+getNewWord :: WordModel.WordModel -> IO (WordModel.WordModel, [Char])
 getNewWord wm = do
       putStrLn "What word do you want to check?"
       newWord <- getLine
       let p = findSuggestions newWord wm
       putStr(show p)
-      newWm <- askUser wm
-      return newWm
+      (newWm, correct) <- askUser wm
+      return (newWm, correct)
 
--- get a new correct word and train the model
-askUser :: WordModel.WordModel -> IO WordModel.WordModel
+{-
+Asks the user which word is correct to fix the typo.
+The word model's frequencies are updated based on user input.
+Output: (wm, correct) the updated word model and the correct word
+         chosen by the user
+-}
+askUser :: WordModel.WordModel -> IO (WordModel.WordModel, [Char])
 askUser wm = do
-      putStrLn "\nChoose the correct spelling or type in a new correct word."
+      putStrLn "\nChoose the correct spelling or type in a new correct word:"
       correct <- getLine
-      let newWm = train wm (tokenize correct)
-      putStr "The word model is updated with the given word \""
-      putStr correct 
-      putStr "\".\n"
-      return newWm
+      let newWm = incrementCount wm correct
+      putStrLn("The word model is updated with the given word \""++correct++"\".\n")
+      return (newWm, correct)
 
--- get a new corpus (string) and train the model
+{-
+Asks the user for a new sentence to add to the model's
+training data.
+This updates the existing model, and does not delete previous learning.
+-}
 getNewCorpus :: WordModel.WordModel -> IO WordModel.WordModel
 getNewCorpus wm = do
-      putStrLn "Type in a sentence to be used as a corpus."
+      putStrLn "Type in a sentence to be added to the corpus."
       newC <- getLine
       let newWm = train wm (tokenize newC)
       putStr "The word model is updated with the given sentence \""

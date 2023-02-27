@@ -1,4 +1,9 @@
 {-
+This code is unused in the project but was modified and place in "interaction.hs"
+The file is left as evidence of Erin's contribution
+-}
+
+{-
 This is the main function which gets called from the command line. It prompts the user
 for text input, parses it, runs a check against a dictionary, and for each word not found,
 provides the user with suggested corrections ("boop" as a placeholder)
